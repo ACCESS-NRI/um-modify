@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      tracked-files: ${{ steps.filter.outputs.tracked-files }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Filter files
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 #v3.0.2
+        id: filter
+        with:
+          filters: |
+            tracked-files:
+              - 'setup.py'
+              - 'pyproject.toml'
+              - '.conda/**'
+              - 'src/**'
+
+  verify-conda-build:
+    name: Verify Conda Build
+    runs-on: ubuntu-latest
+    needs: changes
+    # Only run if there are changes in the tracked files
+    if: ${{ needs.changes.outputs.tracked-files == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup conda build environment
+        uses: conda-incubator/setup-miniconda@a4260408e20b96e80095f42ff7f1a15b27dd94ca # v3.0.4
+        with:
+          miniconda-version: "latest"
+          python-version: ${{ vars.PY_VERSION }} 
+          environment-file: .conda/env_build.yml
+          auto-activate-base: false
+          auto-update-conda: false
+          show-channel-urls: true
+
+      - name: Verify conda recipe
+        shell: bash -el {0}
+        run: conda-verify .conda --ignore C2105,C2122
+        # C2105: invalid package version for 'replace_landsurface' 
+        # (there is no git tag in this test so versioneer outputs a 
+        # version that conda-verify recognizes as 'invalid')
+        # C2122: invalid license family
+        # Reference --> https://github.com/conda/conda-verify?tab=readme-ov-file#checks
+
+      - name: Build conda package
+        shell: bash -el {0}
+        run: conda build . --no-anaconda-upload --output-folder=./build -c accessnri -c conda-forge 
+        # channels needed for the conda recipe tests
+
+      - name: Verify conda package
+        shell: bash -el {0}
+        run: conda-verify ./build/noarch/*.tar.bz2 --ignore C1105,C1115,C1141
+        # C1105: invalid version number for 'replace_landsurface' 
+        # (there is no git tag in this test so versioneer outputs a 
+        # version that conda-verify recognizes as 'invalid')
+        # C1115: Found invalid license
+        # C1141: Found python file without a corresponding pyc file
+        # Reference --> https://github.com/conda/conda-verify?tab=readme-ov-file#checks
+  
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.1.7
+
+      - name: Setup conda environment
+        uses: conda-incubator/setup-miniconda@a4260408e20b96e80095f42ff7f1a15b27dd94ca # v3.0.4
+        with:
+          miniconda-version: "latest"
+          python-version: ${{ matrix.python-version }}
+          environment-file: .conda/env_dev.yml
+          activate-environment: um-modify
+          auto-update-conda: false
+          auto-activate-base: false
+          show-channel-urls: true
+
+      - name: Install source
+        shell: bash -l {0}
+        run: python3 -m pip install --no-deps --no-build-isolation -e .
+
+      - name: List installed packages
+        shell: bash -l {0}
+        run: conda list
+
+      - name: Test of um-modify entry point
+        shell: bash -l {0}
+        run: um-modify --help
+
+      - name: Run tests
+        shell: bash -l {0}
+        run: python3 -m pytest -s -v

@@ -1,0 +1,57 @@
+[project]
+name = "um-modify"
+authors = [
+  {name = "Davide Marchegiani", email="davide.marchegiani@anu.edu.au"},
+]
+maintainers = [
+    { name = "ACCESS-NRI", email = "access.nri@anu.edu.au" }
+]
+description = "Package to modify the data of a UM file."
+license = { file = "LICENSE" }
+readme = "README.md"
+keywords = ["ACCESS-CM2", "ACCESS-ESM1.5", "ACCESS-ESM1.6", "Unified Model"]
+dynamic = ["version"]
+requires-python = ">=3.10"
+dependencies = [
+    "mule",
+    "numpy < 2",
+    "versioneer",
+]
+
+[project.urls]
+Repository = "https://github.com/ACCESS-NRI/um-modify"
+
+[project.scripts]
+um-modify = "TODO" # TODO: Add the script
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>64", 
+    "versioneer[toml]"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "src/um_modify/_version.py"
+versionfile_build = "um_modify/_version.py"
+tag_prefix = ""
+parentdir_prefix = "um-modify-"
+
+[tool.pytest.ini_options]
+testpaths = ["src"]
+addopts = ["--cov=src"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/"]
+
+[tool.coverage.report]
+omit = ["src/*/_version.py"]
+skip_empty = true
+show_missing = true

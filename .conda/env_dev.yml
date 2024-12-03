@@ -1,0 +1,19 @@
+name: um-modify
+channels:
+    - accessnri
+    - conda-forge
+    - coecms
+    - nodefaults
+
+dependencies:
+    - python >=3.10
+    - mule
+    - numpy <2
+    - versioneer
+    - xarray
+    - hypothesis
+    - ipykernel
+    - pip
+    - pytest
+    - pytest-cov
+    - ruff
